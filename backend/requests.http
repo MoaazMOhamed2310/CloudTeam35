@@ -1,0 +1,178 @@
+### =====================================================================
+### requests.http  -  API tests for the VS Code "REST Client" extension
+### Click "Send Request" above each request. Start the API first: npm run dev
+### Run the two sign-in requests first; the others reuse their tokens.
+### =====================================================================
+
+@baseUrl = http://localhost:3000/api
+
+### Health (no database needed)
+GET {{baseUrl}}/health
+
+### ---------------- Auth (Moaaz) ----------------
+
+### Register a resident (test Turnstile token works with the test secret key)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+X-Turnstile-Token: XXXX.DUMMY.TOKEN.XXXX
+
+{ "name": "Amira Hassan", "email": "amira@garden.test", "password": "password123" }
+
+### Sign in as the resident
+# @name resident
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "amira@garden.test", "password": "password123" }
+
+### Sign in as the admin (created with: npm run create-admin -- admin@garden.test "Garden Admin" "admin-password-123")
+# @name admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@garden.test", "password": "admin-password-123" }
+
+### Security: wrong password -> 401
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "amira@garden.test", "password": "not-my-password" }
+
+### ---------------- Plots & Applications (Moaaz) ----------------
+
+### Normal: list plots
+GET {{baseUrl}}/plots?status=available
+Authorization: Bearer {{resident.response.body.token}}
+
+### Security: no token -> 401
+GET {{baseUrl}}/plots
+
+### Security: resident changes a plot -> 403
+PATCH {{baseUrl}}/plots/1/status
+Authorization: Bearer {{resident.response.body.token}}
+Content-Type: application/json
+
+{ "status": "maintenance" }
+
+### Normal: admin changes a plot
+PATCH {{baseUrl}}/plots/11/status
+Authorization: Bearer {{admin.response.body.token}}
+Content-Type: application/json
+
+{ "status": "maintenance" }
+
+### Normal: apply for a plot -> 201 (again for the same season -> 409)
+# @name application
+POST {{baseUrl}}/applications
+Authorization: Bearer {{resident.response.body.token}}
+Content-Type: application/json
+X-Turnstile-Token: XXXX.DUMMY.TOKEN.XXXX
+
+{ "season": "Spring 2027", "note": "Near the gate please" }
+
+### Invalid: bad season -> 400
+POST {{baseUrl}}/applications
+Authorization: Bearer {{resident.response.body.token}}
+Content-Type: application/json
+X-Turnstile-Token: XXXX.DUMMY.TOKEN.XXXX
+
+{ "season": "whenever" }
+
+### My applications (admin gets everyone's)
+GET {{baseUrl}}/applications
+Authorization: Bearer {{resident.response.body.token}}
+
+### Admin approves and assigns plot 1 (again -> 409)
+PATCH {{baseUrl}}/applications/{{application.response.body.id}}/assign
+Authorization: Bearer {{admin.response.body.token}}
+Content-Type: application/json
+
+{ "plotId": 1 }
+
+### Admin rejects
+PATCH {{baseUrl}}/applications/{{application.response.body.id}}/reject
+Authorization: Bearer {{admin.response.body.token}}
+
+### Resident withdraws own pending application
+PATCH {{baseUrl}}/applications/{{application.response.body.id}}/withdraw
+Authorization: Bearer {{resident.response.body.token}}
+
+### ---------------- Shared Tools (Mayan) ----------------
+
+### Normal: search tools
+GET {{baseUrl}}/tools?search=rake
+Authorization: Bearer {{resident.response.body.token}}
+
+### Admin adds a tool
+POST {{baseUrl}}/tools
+Authorization: Bearer {{admin.response.body.token}}
+Content-Type: application/json
+
+{ "name": "Hoe", "category": "Digging", "condition": "good" }
+
+### Admin edits a tool
+PATCH {{baseUrl}}/tools/1
+Authorization: Bearer {{admin.response.body.token}}
+Content-Type: application/json
+
+{ "condition": "fair" }
+
+### Resident borrows tool 2 (again -> 409)
+# @name loan
+POST {{baseUrl}}/tools/2/checkout
+Authorization: Bearer {{resident.response.body.token}}
+
+### My loans
+GET {{baseUrl}}/loans
+Authorization: Bearer {{resident.response.body.token}}
+
+### Return with condition
+PATCH {{baseUrl}}/loans/{{loan.response.body.id}}/return
+Authorization: Bearer {{resident.response.body.token}}
+Content-Type: application/json
+
+{ "condition": "good" }
+
+### Report a borrowed tool as damaged
+POST {{baseUrl}}/tools/2/report
+Authorization: Bearer {{resident.response.body.token}}
+Content-Type: application/json
+
+{ "note": "Handle is cracked" }
+
+### ---------------- Watering Duties (Mahmoud) ----------------
+
+### Forecast for the next 7 days (502 if Open-Meteo is down)
+GET {{baseUrl}}/duties/forecast
+Authorization: Bearer {{resident.response.body.token}}
+
+### Admin: residents to choose from
+GET {{baseUrl}}/users?role=resident
+Authorization: Bearer {{admin.response.body.token}}
+
+### Admin creates a duty (change the date to today or later)
+# @name duty
+POST {{baseUrl}}/duties
+Authorization: Bearer {{admin.response.body.token}}
+Content-Type: application/json
+
+{ "plotId": 1, "assignedUserId": 2, "dutyDate": "2026-12-01" }
+
+### My duties (with rainExpected)
+GET {{baseUrl}}/duties
+Authorization: Bearer {{resident.response.body.token}}
+
+### Assignee completes the duty (again -> 409)
+PATCH {{baseUrl}}/duties/{{duty.response.body.id}}/complete
+Authorization: Bearer {{resident.response.body.token}}
+
+### Admin cancels a duty
+PATCH {{baseUrl}}/duties/{{duty.response.body.id}}
+Authorization: Bearer {{admin.response.body.token}}
+Content-Type: application/json
+
+{ "status": "cancelled" }
+
+### Audit log (admin only; resident -> 403)
+GET {{baseUrl}}/audit-logs
+Authorization: Bearer {{admin.response.body.token}}

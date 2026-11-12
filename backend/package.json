@@ -1,18 +1,23 @@
 {
-  "name": "backend",
+  "name": "community-garden-plots-api",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "REST API for Community Garden Plots (Cloud Computing and Cloud Security, Team 35)",
+  "main": "server.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "create-admin": "node scripts/createAdmin.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.0",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.6",
-    "dotenv": "^18.0.10",
-    "express": "^5.3.0"
+    "dotenv": "^18.0.0",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.2"
   }
 }

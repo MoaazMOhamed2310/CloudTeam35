@@ -1,32 +1,35 @@
-/* ==========================================================================
-   resident/duties.js  -  My watering duties + 7-day forecast (owner: Mahmoud)
-   Functions:
-     GET   /api/duties                 own duties (resident)
-     PATCH /api/duties/:id/complete    only the assignee or an admin
-     GET   /api/duties/forecast        next 7 days from Open-Meteo (via our backend)
-   ========================================================================== */
-(function () {
-  'use strict';
+// My watering duties + 7-day forecast (owner: Mahmoud)
+// GET   /api/duties
+// PATCH /api/duties/:id/complete
+// GET   /api/duties/forecast
 
-  var ui = window.ui;
-  var $ = ui.$, el = ui.el;
-  var duties = [];
-
-  function renderDuties() {
-    var open = window.dutiesList.render($('duties-groups'), duties, function (duty, button) {
-      window.dutiesList.complete(duty, button).then(renderDuties);
-    }, { doneLimit: 5 });
-    $('duties-open').textContent = open + ' open';
-  }
-
-  window.api.get('/duties')
-    .then(function (data) { duties = data; renderDuties(); })
-    .catch(function (err) {
-      ui.clear($('duties-groups'));
-      $('duties-groups').appendChild(ui.empty('Could not load your duties', err.message));
+async function loadDuties() {
+  try {
+    const duties = await apiRequest('/duties');
+    const open = showDutyGroups(document.querySelector('#duties-groups'), duties, async (duty) => {
+      try {
+        await completeDuty(duty);
+        loadDuties();
+      } catch (error) {
+        showMessage(error.message, true);
+      }
     });
+    document.querySelector('#duties-open').textContent = `${open} open`;
+  } catch (error) {
+    document.querySelector('#duties-groups').replaceChildren(emptyMessage('Could not load your duties', error.message));
+  }
+}
 
-  window.api.get('/duties/forecast')
-    .then(window.dutiesList.renderForecast)
-    .catch(function () { $('weather-note').textContent = 'Forecast unavailable right now. Water as planned.'; });
-})();
+async function loadForecast() {
+  try {
+    const days = await apiRequest('/duties/forecast');
+    showForecastStrip(days);
+  } catch (error) {
+    document.querySelector('#weather-note').textContent = 'Forecast unavailable right now. Water as planned.';
+  }
+}
+
+if (pageAllowed) {
+  loadDuties();
+  loadForecast();
+}

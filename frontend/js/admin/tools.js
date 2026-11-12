@@ -1,122 +1,134 @@
-/* ==========================================================================
-   admin/tools.js  -  Tool inventory (owner: Mayan)
-   Functions:
-     GET   /api/tools          inventory with availability
-     POST  /api/tools          { name, category, condition }  add a tool (admin)
-     PATCH /api/tools/:id      { name, category, condition }  edit a tool (admin)
-     GET   /api/loans          all loans, to show who has each tool (admin)
-   ========================================================================== */
-(function () {
-  'use strict';
+// Tool inventory (owner: Mayan)
+// GET   /api/tools
+// GET   /api/loans                 to show who borrowed each tool
+// POST  /api/tools                 { name, category, condition }
+// PATCH /api/tools/:id             { name, category, condition }
 
-  var ui = window.ui;
-  var $ = ui.$, el = ui.el;
-  var tools = [];
-  var borrowers = {};   // toolId -> resident name
+const toolForm = document.querySelector('#tool-form');
+const toolIdInput = document.querySelector('#tool-id');
+const nameInput = document.querySelector('#tool-name');
+const categoryInput = document.querySelector('#tool-category-input');
+const conditionInput = document.querySelector('#tool-condition');
+const submitButton = document.querySelector('#tool-submit');
+const cancelButton = document.querySelector('#tool-cancel');
+const formMessage = document.querySelector('#tool-form-error');
+const toolsBody = document.querySelector('#tools-body');
+const toolSearch = document.querySelector('#tool-search');
 
-  var form = $('tool-form');
-  var idInput = $('tool-id');
-  var nameInput = $('tool-name');
-  var categoryInput = $('tool-category-input');
-  var conditionInput = $('tool-condition');
-  var submit = $('tool-submit');
-  var cancel = $('tool-cancel');
-  var formError = $('tool-form-error');
+let allTools = [];
+let allLoans = [];
 
-  $('tool-search').addEventListener('input', render);
+function borrowerOf(tool) {
+  const loan = allLoans.find((l) => l.toolId === tool.id && l.status === 'on_loan');
+  return loan ? loan.userName : '–';
+}
 
-  /* ---------------- Table ---------------- */
-  function render() {
-    var body = $('tools-body');
-    var term = $('tool-search').value.trim().toLowerCase();
-    var shown = tools.filter(function (t) { return !term || (t.name + ' ' + t.category).toLowerCase().indexOf(term) !== -1; });
+function showTools() {
+  const search = toolSearch.value.trim().toLowerCase();
+  const shown = allTools.filter((tool) => `${tool.name} ${tool.category}`.toLowerCase().includes(search));
 
-    ui.clear(body);
-    if (!shown.length) body.appendChild(ui.emptyRow(5, 'No tools found', 'Try another search.'));
-    shown.forEach(function (t) {
-      body.appendChild(el('tr', {},
-        el('td', { 'data-label': 'Tool' },
-          el('span', { class: 'table__strong', text: t.name }),
-          el('span', { class: 'table__sub', text: t.category })),
-        el('td', { 'data-label': 'Condition' }, ui.badge(t.condition)),
-        el('td', { 'data-label': 'Status' }, ui.badge(t.status)),
-        el('td', { 'data-label': 'Borrowed by', text: borrowers[t.id] || '–' }),
-        el('td', { class: 'table__actions' },
-          el('button', {
-            class: 'btn btn--outline btn--sm', type: 'button',
-            'aria-label': 'Edit ' + t.name,
-            onClick: function () { startEdit(t); }
-          }, ui.icon('edit'), 'Edit'))));
-    });
-
-    var out = tools.filter(function (t) { return t.status === 'on_loan'; }).length;
-    var damaged = tools.filter(function (t) { return t.status === 'damaged'; }).length;
-    $('tools-count').textContent = tools.length + ' tools · ' + out + ' on loan · ' + damaged + ' damaged';
-
-    var categories = tools.map(function (t) { return t.category; }).filter(function (c, i, all) { return all.indexOf(c) === i; });
-    ui.fillSelect($('category-list'), categories.map(function (c) { return { value: c, text: c }; }), false);
+  toolsBody.replaceChildren();
+  if (shown.length === 0) {
+    toolsBody.append(emptyRow(5, 'No tools found', 'Try another search.'));
   }
+  shown.forEach((tool) => {
+    const nameCell = document.createElement('td');
+    nameCell.dataset.label = 'Tool';
+    const name = document.createElement('span');
+    name.className = 'table__strong';
+    name.textContent = tool.name;
+    const category = document.createElement('span');
+    category.className = 'table__sub';
+    category.textContent = tool.category;
+    nameCell.append(name, category);
 
-  /* ---------------- Add / edit form ---------------- */
-  function startEdit(tool) {
-    idInput.value = tool.id;
-    nameInput.value = tool.name;
-    categoryInput.value = tool.category;
-    conditionInput.value = tool.condition;
-    $('form-title').textContent = 'Edit ' + tool.name;
-    submit.textContent = 'Save changes';
-    cancel.hidden = false;
-    nameInput.focus();
-  }
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'btn btn--outline btn--sm';
+    editButton.textContent = 'Edit';
+    editButton.setAttribute('aria-label', `Edit ${tool.name}`);
+    editButton.addEventListener('click', () => startEditing(tool));
+    const actions = document.createElement('td');
+    actions.className = 'table__actions';
+    actions.append(editButton);
 
-  function resetForm() {
-    form.reset();
-    idInput.value = '';
-    $('form-title').textContent = 'Add a tool';
-    submit.textContent = 'Add tool';
-    cancel.hidden = true;
-    formError.textContent = '';
-    ui.fieldError(nameInput, '');
-    ui.fieldError(categoryInput, '');
-  }
-
-  cancel.addEventListener('click', resetForm);
-
-  form.addEventListener('submit', function (event) {
-    event.preventDefault();
-    formError.textContent = '';
-    var nameMsg = nameInput.value.trim() ? '' : 'Enter the tool name.';
-    var catMsg = categoryInput.value.trim() ? '' : 'Enter a category.';
-    ui.fieldError(nameInput, nameMsg);
-    ui.fieldError(categoryInput, catMsg);
-    if (nameMsg || catMsg) return;
-
-    var payload = { name: nameInput.value.trim(), category: categoryInput.value.trim(), condition: conditionInput.value };
-    var editing = Boolean(idInput.value);
-    var request = editing ? window.api.patch('/tools/' + idInput.value, payload) : window.api.post('/tools', payload);
-
-    ui.busy(submit, true);
-    request
-      .then(function (tool) {
-        ui.toast(editing ? tool.name + ' updated.' : tool.name + ' added to the inventory.');
-        resetForm();
-        return load();
-      })
-      .catch(function (err) { formError.textContent = err.message; })
-      .finally(function () { ui.busy(submit, false); });
+    const row = document.createElement('tr');
+    row.append(
+      nameCell,
+      makeCell('Condition', makeBadge(tool.condition)),
+      makeCell('Status', makeBadge(tool.status)),
+      makeCell('Borrowed by', borrowerOf(tool)),
+      actions
+    );
+    toolsBody.append(row);
   });
 
-  function load() {
-    return Promise.all([window.api.get('/tools'), window.api.get('/loans')]).then(function (r) {
-      tools = r[0];
-      borrowers = {};
-      r[1].filter(function (l) { return l.status === 'on_loan'; }).forEach(function (l) { borrowers[l.toolId] = l.userName; });
-      render();
-    });
+  const onLoan = allTools.filter((t) => t.status === 'on_loan').length;
+  document.querySelector('#tools-count').textContent = `${allTools.length} tools · ${onLoan} on loan`;
+}
+
+// ---------------- Add / edit form ----------------
+function startEditing(tool) {
+  toolIdInput.value = tool.id;
+  nameInput.value = tool.name;
+  categoryInput.value = tool.category;
+  conditionInput.value = tool.condition;
+  document.querySelector('#form-title').textContent = `Edit ${tool.name}`;
+  submitButton.textContent = 'Save changes';
+  cancelButton.hidden = false;
+}
+
+function stopEditing() {
+  toolForm.reset();
+  toolIdInput.value = '';
+  document.querySelector('#form-title').textContent = 'Add a tool';
+  submitButton.textContent = 'Add tool';
+  cancelButton.hidden = true;
+  formMessage.textContent = '';
+}
+
+cancelButton.addEventListener('click', stopEditing);
+
+toolForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const data = {
+    name: nameInput.value.trim(),
+    category: categoryInput.value.trim(),
+    condition: conditionInput.value
+  };
+
+  if (!data.name || !data.category) {
+    formMessage.textContent = 'Please enter the tool name and category.';
+    return;
   }
 
-  load().catch(function (err) {
-    ui.clear($('tools-body'));
-    $('tools-body').appendChild(ui.emptyRow(5, 'Could not load tools', err.message));
-  });
-})();
+  try {
+    if (toolIdInput.value) {
+      await sendJson(`/tools/${toolIdInput.value}`, 'PATCH', data);
+      showMessage(`${data.name} updated.`);
+    } else {
+      await sendJson('/tools', 'POST', data);
+      showMessage(`${data.name} added to the inventory.`);
+    }
+    stopEditing();
+    loadTools();
+  } catch (error) {
+    formMessage.textContent = error.message;
+  }
+});
+
+async function loadTools() {
+  try {
+    allTools = await apiRequest('/tools');
+    allLoans = await apiRequest('/loans');
+    showTools();
+  } catch (error) {
+    toolsBody.replaceChildren(emptyRow(5, 'Could not load tools', error.message));
+  }
+}
+
+toolSearch.addEventListener('input', showTools);
+
+if (pageAllowed) {
+  loadTools();
+}

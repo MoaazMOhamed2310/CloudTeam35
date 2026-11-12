@@ -1,57 +1,91 @@
-/* ==========================================================================
-   resident/plots.js  -  Browse plots (owner: Moaaz)
-   Function: list and view plots, filter by status
-   GET /api/plots?status=available|assigned|maintenance
-   ========================================================================== */
-(function () {
-  'use strict';
+// Browse plots (owner: Moaaz)
+// GET /api/plots
 
-  var ui = window.ui;
-  var $ = ui.$, el = ui.el;
-  var plots = [];
+const plotsGrid = document.querySelector('#plots-grid');
+const plotSearch = document.querySelector('#plot-search');
+const plotsCount = document.querySelector('#plots-count');
 
-  var currentStatus = ui.chips('status-chips', 'status', render);
-  $('plot-search').addEventListener('input', render);
+let allPlots = [];
+let chosenStatus = '';
 
-  function plotTile(plot) {
-    return el('article', { class: 'tile plot-tile plot-tile--' + plot.status },
-      el('div', { class: 'tile__head' },
-        el('span', { class: 'row__icon', 'aria-hidden': 'true' }, ui.icon(plot.status === 'maintenance' ? 'tool' : 'sprout')),
-        el('div', {},
-          el('h3', { class: 'tile__title', text: 'Plot ' + plot.label }),
-          el('p', { class: 'row__meta', text: plot.location }))),
-      el('div', { class: 'tile__meta' },
-        el('span', { text: 'Size: ' + plot.size })),
-      el('div', { class: 'tile__foot' },
-        ui.badge(plot.status),
-        plot.status === 'available'
-          ? el('a', { class: 'btn btn--outline btn--sm', href: 'applications.html#new' }, 'Apply')
-          : null));
+function makePlotCard(plot) {
+  const card = document.createElement('article');
+  card.className = `tile plot-tile plot-tile--${plot.status}`;
+
+  const head = document.createElement('div');
+  head.className = 'tile__head';
+  const icon = document.createElement('span');
+  icon.className = 'row__icon';
+  icon.append(createIcon(plot.status === 'maintenance' ? 'tool' : 'sprout'));
+  const titles = document.createElement('div');
+  const title = document.createElement('h3');
+  title.className = 'tile__title';
+  title.textContent = `Plot ${plot.label}`;
+  const location = document.createElement('p');
+  location.className = 'row__meta';
+  location.textContent = plot.location;
+  titles.append(title, location);
+  head.append(icon, titles);
+
+  const size = document.createElement('p');
+  size.className = 'tile__meta';
+  size.textContent = `Size: ${plot.size}`;
+
+  const foot = document.createElement('div');
+  foot.className = 'tile__foot';
+  foot.append(makeBadge(plot.status));
+  if (plot.status === 'available') {
+    const apply = document.createElement('a');
+    apply.className = 'btn btn--outline btn--sm';
+    apply.href = 'applications.html#new';
+    apply.textContent = 'Apply';
+    foot.append(apply);
   }
 
-  function render() {
-    var grid = $('plots-grid');
-    var status = currentStatus();
-    var term = $('plot-search').value.trim().toLowerCase();
+  card.append(head, size, foot);
+  return card;
+}
 
-    var shown = plots.filter(function (p) {
-      var matchesStatus = !status || p.status === status;
-      var matchesText = !term || (p.label + ' ' + p.location).toLowerCase().indexOf(term) !== -1;
-      return matchesStatus && matchesText;
-    });
+function showPlots() {
+  const search = plotSearch.value.trim().toLowerCase();
 
-    ui.clear(grid);
-    if (!shown.length) grid.appendChild(ui.empty('No plots found', 'Try another filter or search.'));
-    shown.forEach(function (p) { grid.appendChild(plotTile(p)); });
+  const shown = allPlots.filter((plot) => {
+    const statusMatches = chosenStatus === '' || plot.status === chosenStatus;
+    const textMatches = `${plot.label} ${plot.location}`.toLowerCase().includes(search);
+    return statusMatches && textMatches;
+  });
 
-    var free = plots.filter(function (p) { return p.status === 'available'; }).length;
-    $('plots-count').textContent = 'Showing ' + shown.length + ' of ' + plots.length + ' plots · ' + free + ' available';
+  plotsGrid.replaceChildren();
+  if (shown.length === 0) {
+    plotsGrid.append(emptyMessage('No plots found', 'Try another filter or search.'));
   }
+  shown.forEach((plot) => plotsGrid.append(makePlotCard(plot)));
 
-  window.api.get('/plots')
-    .then(function (data) { plots = data; render(); })
-    .catch(function (err) {
-      ui.clear($('plots-grid'));
-      $('plots-grid').appendChild(ui.empty('Could not load plots', err.message));
-    });
-})();
+  const free = allPlots.filter((p) => p.status === 'available').length;
+  plotsCount.textContent = `Showing ${shown.length} of ${allPlots.length} plots · ${free} available`;
+}
+
+async function loadPlots() {
+  try {
+    allPlots = await apiRequest('/plots');
+    showPlots();
+  } catch (error) {
+    plotsGrid.replaceChildren(emptyMessage('Could not load plots', error.message));
+  }
+}
+
+// Filter buttons: All / Available / Assigned / Maintenance
+document.querySelectorAll('#status-chips .chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#status-chips .chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+    chip.setAttribute('aria-pressed', 'true');
+    chosenStatus = chip.dataset.status;
+    showPlots();
+  });
+});
+
+plotSearch.addEventListener('input', showPlots);
+
+if (pageAllowed) {
+  loadPlots();
+}

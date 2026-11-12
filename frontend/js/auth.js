@@ -1,97 +1,83 @@
-/* ==========================================================================
-   auth.js  -  Sign in and register pages (owner: Moaaz)
-   POST /api/auth/login     { email, password }                      -> 200 { token, user }
-   POST /api/auth/register  { name, email, password, turnstileToken } -> 201 { token, user }
-   ========================================================================== */
-(function () {
-  'use strict';
+// Sign in and register pages (owner: Moaaz)
+// POST /api/auth/login     { email, password }        -> { token, user }
+// POST /api/auth/register  { name, email, password }  -> { token, user }   (+ Turnstile token)
 
-  var ui = window.ui;
-  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function goToDashboard(user) {
+  window.location.href = `${user.role}/dashboard.html`;
+}
 
-  function goHome(user) { window.location.href = ui.homeUrl(user.role); }
+// ---------------- Sign in ----------------
+const loginForm = document.querySelector('#login-form');
 
-  /* ---------------- Sign in ---------------- */
-  var loginForm = ui.$('login-form');
-  if (loginForm) {
-    var email = ui.$('login-email');
-    var password = ui.$('login-password');
-    var formError = ui.$('login-form-error');
+if (loginForm) {
+  const loginMessage = document.querySelector('#login-form-error');
 
-    if (window.APP_CONFIG.USE_MOCK) {
-      var note = ui.$('demo-note');
-      note.hidden = false;
-      note.textContent = 'Sample mode: sign in as amira@garden.test (resident) or admin@garden.test (admin) with any password of 8+ characters.';
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const email = document.querySelector('#login-email').value.trim();
+    const password = document.querySelector('#login-password').value;
+
+    if (!email || !password) {
+      loginMessage.textContent = 'Please enter your email and password.';
+      return;
     }
 
-    loginForm.addEventListener('submit', function (event) {
-      event.preventDefault();
-      formError.textContent = '';
-      var ok = true;
+    try {
+      loginMessage.textContent = '';
+      const result = await sendJson('/auth/login', 'POST', { email, password });
+      saveLogin(result.token, result.user);
+      goToDashboard(result.user);
+    } catch (error) {
+      loginMessage.textContent = error.message;
+    }
+  });
+}
 
-      ui.fieldError(email, EMAIL_RE.test(email.value.trim()) ? '' : 'Enter a valid email address.');
-      ui.fieldError(password, password.value ? '' : 'Enter your password.');
-      if (!EMAIL_RE.test(email.value.trim()) || !password.value) ok = false;
-      if (!ok) return;
+// ---------------- Register ----------------
+const registerForm = document.querySelector('#register-form');
 
-      var button = loginForm.querySelector('button[type="submit"]');
-      ui.busy(button, true);
-      window.api.post('/auth/login', { email: email.value.trim(), password: password.value })
-        .then(function (result) {
-          ui.setSession(result.token, result.user);
-          goHome(result.user);
-        })
-        .catch(function (err) {
-          // Same message for wrong email and wrong password, so attackers can't find valid accounts
-          formError.textContent = err.message;
-          password.value = '';
-          password.focus();
-        })
-        .finally(function () { ui.busy(button, false); });
-    });
+if (registerForm) {
+  const registerMessage = document.querySelector('#register-form-error');
+
+  // Draw the Turnstile widget (Lab 5 Part O1)
+  let turnstileWidgetId = null;
+  if (window.turnstile) {
+    turnstileWidgetId = turnstile.render('#turnstile-widget', { sitekey: TURNSTILE_SITE_KEY });
   }
 
-  /* ---------------- Register ---------------- */
-  var registerForm = ui.$('register-form');
-  if (registerForm) {
-    var name = ui.$('register-name');
-    var regEmail = ui.$('register-email');
-    var regPassword = ui.$('register-password');
-    var regError = ui.$('register-form-error');
-    var bot = window.turnstileBox.mount('register-turnstile');
+  registerForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = document.querySelector('#register-name').value.trim();
+    const email = document.querySelector('#register-email').value.trim();
+    const password = document.querySelector('#register-password').value;
 
-    registerForm.addEventListener('submit', function (event) {
-      event.preventDefault();
-      regError.textContent = '';
+    if (!name || !email) {
+      registerMessage.textContent = 'Please enter your name and email.';
+      return;
+    }
+    if (password.length < 8) {
+      registerMessage.textContent = 'The password must be at least 8 characters.';
+      return;
+    }
 
-      var nameMsg = name.value.trim() ? '' : 'Enter your name.';
-      var emailMsg = EMAIL_RE.test(regEmail.value.trim()) ? '' : 'Enter a valid email address.';
-      var passMsg = regPassword.value.length >= 8 ? '' : 'Use at least 8 characters.';
-      ui.fieldError(name, nameMsg);
-      ui.fieldError(regEmail, emailMsg);
-      ui.fieldError(regPassword, passMsg);
-      if (nameMsg || emailMsg || passMsg) return;
+    const turnstileToken = window.turnstile ? turnstile.getResponse(turnstileWidgetId) : '';
+    if (!turnstileToken) {
+      registerMessage.textContent = 'Please complete the bot check first.';
+      return;
+    }
 
-      var token = bot.getToken();
-      if (!token) { regError.textContent = 'Please complete the bot check.'; return; }
-
-      var button = registerForm.querySelector('button[type="submit"]');
-      ui.busy(button, true);
-      window.api.post('/auth/register', {
-        name: name.value.trim(),
-        email: regEmail.value.trim(),
-        password: regPassword.value,
-        turnstileToken: token
-      })
-        .then(function (result) {
-          ui.setSession(result.token, result.user);
-          goHome(result.user);
-        })
-        .catch(function (err) {
-          regError.textContent = err.message;
-          bot.reset();
-        })
-        .finally(function () { ui.busy(button, false); });
-    });
-  }
-})();
+    try {
+      registerMessage.textContent = '';
+      const result = await sendJson('/auth/register', 'POST', { name, email, password }, { 'X-Turnstile-Token': turnstileToken });
+      saveLogin(result.token, result.user);
+      goToDashboard(result.user);
+    } catch (error) {
+      registerMessage.textContent = error.message;
+    } finally {
+      // A token works only once, so ask the widget for a fresh one
+      if (window.turnstile) {
+        turnstile.reset(turnstileWidgetId);
+      }
+    }
+  });
+}

@@ -1,15 +1,11 @@
-/* ==========================================================================
-   config.js  -  The only file that changes between laptop and cloud (Lab 5)
-   ========================================================================== */
-window.APP_CONFIG = {
-  // Local backend while developing. After deploying, change to:
-  //   'https://YOUR-API-PROJECT.vercel.app/api'
-  API_BASE_URL: 'http://localhost:3000/api',
+// The address of the REST API. This is the only file that changes between laptop and cloud (Lab 5).
+const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
-  // true  = pages use the sample data in mock.js (no backend needed)
-  // false = pages call the real REST API through api.js
-  USE_MOCK: true,
+const API_BASE_URL = isLocal
+  ? 'http://localhost:3000/api'
+  : 'https://YOUR-API-PROJECT.vercel.app/api';
 
-  // Cloudflare Turnstile public site key (safe to commit; the secret stays in backend/.env)
-  TURNSTILE_SITE_KEY: 'YOUR-TURNSTILE-SITE-KEY'
-};
+// Turnstile site key (public). Locally we use Cloudflare's test key.
+const TURNSTILE_SITE_KEY = isLocal
+  ? '1x00000000000000000000AA'
+  : 'YOUR-TURNSTILE-SITE-KEY';

@@ -1,105 +1,153 @@
-/* ==========================================================================
-   admin/applications.js  -  Review applications and assign plots (owner: Moaaz)
-   Functions:
-     GET   /api/applications              all applications (admin)
-     PATCH /api/applications/:id/assign   { plotId }  approve + assign, 409 if plot not free
-     PATCH /api/applications/:id/reject
-     GET   /api/plots?status=available    free plots for the assign list
-   ========================================================================== */
-(function () {
-  'use strict';
+// Review applications and assign plots (owner: Moaaz)
+// GET   /api/applications
+// GET   /api/plots?status=available
+// PATCH /api/applications/:id/assign   { plotId }
+// PATCH /api/applications/:id/reject
 
-  var ui = window.ui;
-  var $ = ui.$, el = ui.el;
-  var applications = [];
-  var freePlots = [];
+const appsBody = document.querySelector('#apps-body');
+const seasonFilter = document.querySelector('#season-filter');
 
-  var currentStatus = ui.chips('app-chips', 'status', render);
-  var seasonFilter = $('season-filter');
-  seasonFilter.addEventListener('change', render);
+let allApplications = [];
+let freePlots = [];
+let chosenStatus = 'pending';
 
-  function decisionCell(app) {
-    var cell = el('td', { class: 'table__actions' });
-    if (app.status !== 'pending') {
-      cell.appendChild(el('span', { class: 'table__sub', text: app.plotLabel ? 'Plot ' + app.plotLabel : '–' }));
-      return cell;
-    }
-    var selectId = 'plot-for-' + app.id;
-    var select = el('select', { class: 'select select--sm', id: selectId },
-      el('option', { value: '', text: freePlots.length ? 'Choose plot' : 'No free plots' }));
-    freePlots.forEach(function (p) { select.appendChild(el('option', { value: String(p.id), text: p.label + ' · ' + p.size })); });
+function makeDecisionCell(app) {
+  const cell = document.createElement('td');
+  cell.className = 'table__actions';
 
-    var approve = el('button', {
-      class: 'btn btn--primary btn--sm', type: 'button',
-      onClick: function () { assign(app, select, approve); }
-    }, 'Approve');
-    var reject = el('button', {
-      class: 'btn btn--outline btn--sm', type: 'button',
-      'aria-label': 'Reject application from ' + app.userName,
-      onClick: function () { rejectApp(app, reject); }
-    }, 'Reject');
-
-    cell.appendChild(el('div', { class: 'assign-cell' },
-      el('label', { class: 'visually-hidden', for: selectId, text: 'Plot for ' + app.userName }),
-      select, approve, reject));
+  if (app.status !== 'pending') {
+    cell.textContent = app.plotLabel ? `Plot ${app.plotLabel}` : '–';
     return cell;
   }
 
-  function render() {
-    var body = $('apps-body');
-    var status = currentStatus();
-    var season = seasonFilter.value;
-    var shown = applications.filter(function (a) { return (!status || a.status === status) && (!season || a.season === season); });
-
-    ui.clear(body);
-    if (!shown.length) body.appendChild(ui.emptyRow(6, status === 'pending' ? 'All caught up' : 'No applications here', status === 'pending' ? 'No applications are waiting for review.' : 'Try another filter.'));
-    shown.forEach(function (a) {
-      body.appendChild(el('tr', {},
-        el('td', { 'data-label': 'Resident', class: 'table__strong', text: a.userName }),
-        el('td', { 'data-label': 'Season', class: 'table__nowrap', text: a.season }),
-        el('td', { 'data-label': 'Note', text: a.note || '–' }),
-        el('td', { 'data-label': 'Status' }, ui.badge(a.status)),
-        el('td', { 'data-label': 'Submitted', class: 'table__nowrap', text: ui.fmtShort.format(new Date(a.createdAt)) }),
-        decisionCell(a)));
-    });
-    $('apps-count').textContent = 'Showing ' + shown.length + ' of ' + applications.length + ' applications';
-    $('free-count').textContent = freePlots.length + ' plots free';
-  }
-
-  function assign(app, select, button) {
-    if (!select.value) { ui.toast('Choose a plot first.', true); select.focus(); return; }
-    ui.busy(button, true);
-    window.api.patch('/applications/' + app.id + '/assign', { plotId: Number(select.value) })
-      .then(function (updated) {
-        ui.toast('Approved. Plot ' + updated.plotLabel + ' assigned to ' + app.userName + '.');
-        return load();
-      })
-      .catch(function (err) { ui.busy(button, false); ui.toast(err.message, true); });
-  }
-
-  function rejectApp(app, button) {
-    ui.busy(button, true);
-    window.api.patch('/applications/' + app.id + '/reject')
-      .then(function () { ui.toast('Application rejected.'); return load(); })
-      .catch(function (err) { ui.busy(button, false); ui.toast(err.message, true); });
-  }
-
-  function load() {
-    return Promise.all([window.api.get('/applications'), window.api.get('/plots?status=available')])
-      .then(function (r) {
-        applications = r[0];
-        freePlots = r[1];
-        var seasons = applications.map(function (a) { return a.season; })
-          .filter(function (s, i, all) { return all.indexOf(s) === i; });
-        var chosen = seasonFilter.value;
-        ui.fillSelect(seasonFilter, seasons.map(function (s) { return { value: s, text: s }; }), true);
-        seasonFilter.value = chosen;
-        render();
-      });
-  }
-
-  load().catch(function (err) {
-    ui.clear($('apps-body'));
-    $('apps-body').appendChild(ui.emptyRow(6, 'Could not load applications', err.message));
+  const select = document.createElement('select');
+  select.className = 'select select--sm';
+  select.setAttribute('aria-label', `Plot for ${app.userName}`);
+  const first = document.createElement('option');
+  first.value = '';
+  first.textContent = freePlots.length > 0 ? 'Choose plot' : 'No free plots';
+  select.append(first);
+  freePlots.forEach((plot) => {
+    const option = document.createElement('option');
+    option.value = plot.id;
+    option.textContent = `${plot.label} · ${plot.size}`;
+    select.append(option);
   });
-})();
+
+  const approve = document.createElement('button');
+  approve.type = 'button';
+  approve.className = 'btn btn--primary btn--sm';
+  approve.textContent = 'Approve';
+  approve.addEventListener('click', () => approveApplication(app, select.value));
+
+  const reject = document.createElement('button');
+  reject.type = 'button';
+  reject.className = 'btn btn--outline btn--sm';
+  reject.textContent = 'Reject';
+  reject.setAttribute('aria-label', `Reject application from ${app.userName}`);
+  reject.addEventListener('click', () => rejectApplication(app));
+
+  const box = document.createElement('div');
+  box.className = 'assign-cell';
+  box.append(select, approve, reject);
+  cell.append(box);
+  return cell;
+}
+
+function showApplications() {
+  const shown = allApplications.filter((app) => {
+    const statusMatches = chosenStatus === '' || app.status === chosenStatus;
+    const seasonMatches = seasonFilter.value === '' || app.season === seasonFilter.value;
+    return statusMatches && seasonMatches;
+  });
+
+  appsBody.replaceChildren();
+  if (shown.length === 0) {
+    appsBody.append(emptyRow(6, 'No applications here', 'Try another filter.'));
+  }
+  shown.forEach((app) => {
+    const row = document.createElement('tr');
+    row.append(
+      makeCell('Resident', app.userName),
+      makeCell('Season', app.season),
+      makeCell('Note', app.note || '–'),
+      makeCell('Status', makeBadge(app.status)),
+      makeCell('Submitted', shortDate.format(new Date(app.createdAt))),
+      makeDecisionCell(app)
+    );
+    appsBody.append(row);
+  });
+
+  document.querySelector('#apps-count').textContent = `Showing ${shown.length} of ${allApplications.length} applications`;
+  document.querySelector('#free-count').textContent = `${freePlots.length} plots free`;
+}
+
+function fillSeasons() {
+  const seasons = [];
+  allApplications.forEach((app) => {
+    if (!seasons.includes(app.season)) seasons.push(app.season);
+  });
+  const chosen = seasonFilter.value;
+  seasonFilter.replaceChildren();
+  const all = document.createElement('option');
+  all.value = '';
+  all.textContent = 'All seasons';
+  seasonFilter.append(all);
+  seasons.forEach((season) => {
+    const option = document.createElement('option');
+    option.value = season;
+    option.textContent = season;
+    seasonFilter.append(option);
+  });
+  seasonFilter.value = chosen;
+}
+
+async function approveApplication(app, plotId) {
+  if (plotId === '') {
+    showMessage('Choose a plot first.', true);
+    return;
+  }
+  try {
+    const updated = await sendJson(`/applications/${app.id}/assign`, 'PATCH', { plotId: Number(plotId) });
+    showMessage(`Approved. Plot ${updated.plotLabel} assigned to ${app.userName}.`);
+    loadApplications();
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+async function rejectApplication(app) {
+  try {
+    await apiRequest(`/applications/${app.id}/reject`, { method: 'PATCH' });
+    showMessage('Application rejected.');
+    loadApplications();
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+async function loadApplications() {
+  try {
+    allApplications = await apiRequest('/applications');
+    freePlots = await apiRequest('/plots?status=available');
+    fillSeasons();
+    showApplications();
+  } catch (error) {
+    appsBody.replaceChildren(emptyRow(6, 'Could not load applications', error.message));
+  }
+}
+
+document.querySelectorAll('#app-chips .chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#app-chips .chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+    chip.setAttribute('aria-pressed', 'true');
+    chosenStatus = chip.dataset.status;
+    showApplications();
+  });
+});
+
+seasonFilter.addEventListener('change', showApplications);
+
+if (pageAllowed) {
+  loadApplications();
+}
