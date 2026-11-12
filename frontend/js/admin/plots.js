@@ -1,79 +1,94 @@
-/* ==========================================================================
-   admin/plots.js  -  Manage plots (owner: Moaaz)
-   Functions:
-     GET   /api/plots               all plots
-     PATCH /api/plots/:id/status    { status: available|assigned|maintenance }  (admin)
-     GET   /api/applications        to show who each plot is assigned to
-   ========================================================================== */
-(function () {
-  'use strict';
+// Manage plots (owner: Moaaz)
+// GET   /api/plots
+// PATCH /api/plots/:id/status   { status }
 
-  var ui = window.ui;
-  var $ = ui.$, el = ui.el;
-  var plots = [];
-  var holders = {};   // plotId -> resident name (from approved applications)
+const plotsBody = document.querySelector('#plots-body');
+const plotSearch = document.querySelector('#plot-search');
 
-  var currentStatus = ui.chips('status-chips', 'status', render);
-  $('plot-search').addEventListener('input', render);
+let allPlots = [];
+let applications = [];
+let chosenStatus = '';
 
-  function statusSelect(plot) {
-    var id = 'status-' + plot.id;
-    var select = el('select', { class: 'select select--sm', id: id },
-      el('option', { value: 'available', text: 'Available' }),
-      el('option', { value: 'assigned', text: 'Assigned' }),
-      el('option', { value: 'maintenance', text: 'Maintenance' }));
-    select.value = plot.status;
-    select.addEventListener('change', function () { updateStatus(plot, select); });
-    return el('div', {}, el('label', { class: 'visually-hidden', for: id, text: 'Status of plot ' + plot.label }), select);
+// Who has this plot? (from approved applications)
+function plotHolder(plot) {
+  const approved = applications.find((a) => a.status === 'approved' && a.assignedPlotId === plot.id);
+  return approved ? approved.userName : '–';
+}
+
+function makeStatusSelect(plot) {
+  const select = document.createElement('select');
+  select.className = 'select select--sm';
+  select.setAttribute('aria-label', `Status of plot ${plot.label}`);
+  ['available', 'assigned', 'maintenance'].forEach((status) => {
+    const option = document.createElement('option');
+    option.value = status;
+    option.textContent = statusText(status);
+    select.append(option);
+  });
+  select.value = plot.status;
+  select.addEventListener('change', () => changeStatus(plot, select.value));
+  return select;
+}
+
+function showPlots() {
+  const search = plotSearch.value.trim().toLowerCase();
+  const shown = allPlots.filter((plot) => {
+    const statusMatches = chosenStatus === '' || plot.status === chosenStatus;
+    const textMatches = `${plot.label} ${plot.location}`.toLowerCase().includes(search);
+    return statusMatches && textMatches;
+  });
+
+  plotsBody.replaceChildren();
+  if (shown.length === 0) {
+    plotsBody.append(emptyRow(6, 'No plots found', 'Try another filter.'));
   }
+  shown.forEach((plot) => {
+    const row = document.createElement('tr');
+    row.append(
+      makeCell('Plot', plot.label),
+      makeCell('Size', plot.size),
+      makeCell('Location', plot.location),
+      makeCell('Assigned to', plotHolder(plot)),
+      makeCell('Status', makeBadge(plot.status)),
+      makeCell('Change status', makeStatusSelect(plot))
+    );
+    plotsBody.append(row);
+  });
+  document.querySelector('#plots-count').textContent = `Showing ${shown.length} of ${allPlots.length} plots`;
+}
 
-  function render() {
-    var body = $('plots-body');
-    var status = currentStatus();
-    var term = $('plot-search').value.trim().toLowerCase();
-    var shown = plots.filter(function (p) {
-      return (!status || p.status === status) && (!term || (p.label + ' ' + p.location).toLowerCase().indexOf(term) !== -1);
-    });
-
-    ui.clear(body);
-    if (!shown.length) body.appendChild(ui.emptyRow(6, 'No plots found', 'Try another filter.'));
-    shown.forEach(function (p) {
-      body.appendChild(el('tr', {},
-        el('td', { 'data-label': 'Plot', class: 'table__strong', text: p.label }),
-        el('td', { 'data-label': 'Size', class: 'table__nowrap', text: p.size }),
-        el('td', { 'data-label': 'Location', text: p.location }),
-        el('td', { 'data-label': 'Assigned to', text: holders[p.id] || '–' }),
-        el('td', { 'data-label': 'Status' }, ui.badge(p.status)),
-        el('td', { 'data-label': 'Change status' }, statusSelect(p))));
-    });
-    $('plots-count').textContent = 'Showing ' + shown.length + ' of ' + plots.length + ' plots';
+async function changeStatus(plot, newStatus) {
+  try {
+    await sendJson(`/plots/${plot.id}/status`, 'PATCH', { status: newStatus });
+    showMessage(`Plot ${plot.label} is now ${statusText(newStatus).toLowerCase()}.`);
+    loadPlots();
+  } catch (error) {
+    showMessage(error.message, true);
+    showPlots();
   }
+}
 
-  function updateStatus(plot, select) {
-    var previous = plot.status;
-    select.disabled = true;
-    window.api.patch('/plots/' + plot.id + '/status', { status: select.value })
-      .then(function (updated) {
-        Object.assign(plot, updated);
-        ui.toast('Plot ' + plot.label + ' is now ' + ui.label(plot.status).toLowerCase() + '.');
-        render();
-      })
-      .catch(function (err) {
-        select.value = previous;
-        select.disabled = false;
-        ui.toast(err.message, true);
-      });
+async function loadPlots() {
+  try {
+    allPlots = await apiRequest('/plots');
+    applications = await apiRequest('/applications');
+    showPlots();
+  } catch (error) {
+    plotsBody.replaceChildren(emptyRow(6, 'Could not load plots', error.message));
   }
+}
 
-  Promise.all([window.api.get('/plots'), window.api.get('/applications')])
-    .then(function (r) {
-      plots = r[0];
-      r[1].filter(function (a) { return a.status === 'approved' && a.assignedPlotId; })
-        .forEach(function (a) { if (!holders[a.assignedPlotId]) holders[a.assignedPlotId] = a.userName; });
-      render();
-    })
-    .catch(function (err) {
-      ui.clear($('plots-body'));
-      $('plots-body').appendChild(ui.emptyRow(6, 'Could not load plots', err.message));
-    });
-})();
+document.querySelectorAll('#status-chips .chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('#status-chips .chip').forEach((c) => c.setAttribute('aria-pressed', 'false'));
+    chip.setAttribute('aria-pressed', 'true');
+    chosenStatus = chip.dataset.status;
+    showPlots();
+  });
+});
+
+plotSearch.addEventListener('input', showPlots);
+
+if (pageAllowed) {
+  loadPlots();
+}

@@ -1,82 +1,112 @@
-/* ==========================================================================
-   resident/tools.js  -  Browse and borrow tools (owner: Mayan)
-   Functions:
-     GET  /api/tools?search=&category=   list and search tools with availability
-     POST /api/tools/:id/checkout        borrow a tool -> 201 loan, 409 if not available
-   ========================================================================== */
-(function () {
-  'use strict';
+// Browse and borrow tools (owner: Mayan)
+// GET  /api/tools
+// POST /api/tools/:id/checkout
 
-  var ui = window.ui;
-  var $ = ui.$, el = ui.el;
-  var tools = [];
+const toolsGrid = document.querySelector('#tools-grid');
+const toolSearch = document.querySelector('#tool-search');
+const categorySelect = document.querySelector('#tool-category');
+const onlyAvailable = document.querySelector('#only-available');
 
-  var search = $('tool-search');
-  var category = $('tool-category');
-  var onlyAvailable = $('only-available');
-  [search, category, onlyAvailable].forEach(function (input) {
-    input.addEventListener(input === search ? 'input' : 'change', render);
+let allTools = [];
+
+function makeToolCard(tool) {
+  const card = document.createElement('article');
+  card.className = `tile tool-tile tool-tile--${tool.status}`;
+
+  const head = document.createElement('div');
+  head.className = 'tile__head';
+  const icon = document.createElement('span');
+  icon.className = 'row__icon';
+  icon.append(createIcon('tool'));
+  const titles = document.createElement('div');
+  const title = document.createElement('h3');
+  title.className = 'tile__title';
+  title.textContent = tool.name;
+  const category = document.createElement('p');
+  category.className = 'row__meta';
+  category.textContent = tool.category;
+  titles.append(title, category);
+  head.append(icon, titles);
+
+  const condition = document.createElement('p');
+  condition.className = 'tile__meta';
+  condition.textContent = `Condition: ${statusText(tool.condition)}`;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn--primary btn--sm';
+  button.disabled = tool.status !== 'available';
+  button.textContent = tool.status === 'available' ? 'Borrow' : 'Unavailable';
+  button.setAttribute('aria-label', `Borrow ${tool.name}`);
+  button.addEventListener('click', () => borrowTool(tool));
+
+  const foot = document.createElement('div');
+  foot.className = 'tile__foot';
+  foot.append(makeBadge(tool.status), button);
+
+  card.append(head, condition, foot);
+  return card;
+}
+
+function showTools() {
+  const search = toolSearch.value.trim().toLowerCase();
+
+  const shown = allTools.filter((tool) => {
+    const textMatches = tool.name.toLowerCase().includes(search);
+    const categoryMatches = categorySelect.value === '' || tool.category === categorySelect.value;
+    const availableMatches = !onlyAvailable.checked || tool.status === 'available';
+    return textMatches && categoryMatches && availableMatches;
   });
 
-  function toolTile(tool) {
-    var borrow = el('button', {
-      class: 'btn btn--primary btn--sm', type: 'button',
-      disabled: !tool.available,
-      'aria-label': 'Borrow ' + tool.name,
-      onClick: function () { checkout(tool, borrow); }
-    }, tool.available ? 'Borrow' : 'Unavailable');
-
-    return el('article', { class: 'tile tool-tile tool-tile--' + tool.status },
-      el('div', { class: 'tile__head' },
-        el('span', { class: 'row__icon', 'aria-hidden': 'true' }, ui.icon('tool')),
-        el('div', {},
-          el('h3', { class: 'tile__title', text: tool.name }),
-          el('p', { class: 'row__meta', text: tool.category }))),
-      el('div', { class: 'tile__meta' }, el('span', { text: 'Condition: ' + ui.label(tool.condition) })),
-      el('div', { class: 'tile__foot' }, ui.badge(tool.status), borrow));
+  toolsGrid.replaceChildren();
+  if (shown.length === 0) {
+    toolsGrid.append(emptyMessage('No tools found', 'Try another search or category.'));
   }
+  shown.forEach((tool) => toolsGrid.append(makeToolCard(tool)));
 
-  function render() {
-    var grid = $('tools-grid');
-    var term = search.value.trim().toLowerCase();
-    var shown = tools.filter(function (t) {
-      return (!term || t.name.toLowerCase().indexOf(term) !== -1)
-        && (!category.value || t.category === category.value)
-        && (!onlyAvailable.checked || t.available);
-    });
+  const free = allTools.filter((t) => t.status === 'available').length;
+  document.querySelector('#tools-count').textContent = `Showing ${shown.length} of ${allTools.length} tools · ${free} available now`;
+}
 
-    ui.clear(grid);
-    if (!shown.length) grid.appendChild(ui.empty('No tools found', 'Try another search or category.'));
-    shown.forEach(function (t) { grid.appendChild(toolTile(t)); });
-
-    var free = tools.filter(function (t) { return t.available; }).length;
-    $('tools-count').textContent = 'Showing ' + shown.length + ' of ' + tools.length + ' tools · ' + free + ' available now';
-  }
-
-  function checkout(tool, button) {
-    ui.busy(button, true);
-    window.api.post('/tools/' + tool.id + '/checkout')
-      .then(function () {
-        ui.toast(tool.name + ' borrowed. Find it under My loans.');
-        return load();
-      })
-      .catch(function (err) { ui.busy(button, false); ui.toast(err.message, true); });
-  }
-
-  function load() {
-    return window.api.get('/tools').then(function (data) {
-      tools = data;
-      var categories = tools.map(function (t) { return t.category; })
-        .filter(function (c, i, all) { return all.indexOf(c) === i; }).sort();
-      var chosen = category.value;
-      ui.fillSelect(category, categories.map(function (c) { return { value: c, text: c }; }), true);
-      category.value = chosen;
-      render();
-    });
-  }
-
-  load().catch(function (err) {
-    ui.clear($('tools-grid'));
-    $('tools-grid').appendChild(ui.empty('Could not load tools', err.message));
+// Put each category once in the drop-down
+function fillCategories() {
+  const categories = [];
+  allTools.forEach((tool) => {
+    if (!categories.includes(tool.category)) categories.push(tool.category);
   });
-})();
+  categories.sort().forEach((name) => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    categorySelect.append(option);
+  });
+}
+
+async function borrowTool(tool) {
+  try {
+    await apiRequest(`/tools/${tool.id}/checkout`, { method: 'POST' });
+    showMessage(`${tool.name} borrowed. Find it under My loans.`);
+    allTools = await apiRequest('/tools');
+    showTools();
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+async function loadTools() {
+  try {
+    allTools = await apiRequest('/tools');
+    fillCategories();
+    showTools();
+  } catch (error) {
+    toolsGrid.replaceChildren(emptyMessage('Could not load tools', error.message));
+  }
+}
+
+toolSearch.addEventListener('input', showTools);
+categorySelect.addEventListener('change', showTools);
+onlyAvailable.addEventListener('change', showTools);
+
+if (pageAllowed) {
+  loadTools();
+}

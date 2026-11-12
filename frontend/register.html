@@ -80,11 +80,11 @@
               </div>
               <div class="field">
                 <label class="field__label" for="register-password">Password</label>
-                <input class="input" id="register-password" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="200" aria-describedby="register-password-hint register-password-error">
-                <p class="field__hint" id="register-password-hint">At least 8 characters.</p>
+                <input class="input" id="register-password" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="72" aria-describedby="register-password-hint register-password-error">
+                <p class="field__hint" id="register-password-hint">8 to 72 characters.</p>
                 <p class="field__error" id="register-password-error"></p>
               </div>
-              <div class="turnstile-box" id="register-turnstile"></div>
+              <div class="turnstile-box" id="turnstile-widget"></div>
               <p class="field__error" id="register-form-error" role="alert"></p>
               <button class="btn btn--primary btn--block" type="submit">Create account</button>
             </form>
@@ -96,11 +96,9 @@
 
   <div class="toast-region" id="toast-region" role="status" aria-live="polite"></div>
 
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
   <script src="js/config.js" defer></script>
   <script src="js/api.js" defer></script>
-  <script src="js/mock.js" defer></script>
-  <script src="js/layout.js" defer></script>
-  <script src="js/turnstile.js" defer></script>
   <script src="js/auth.js" defer></script>
 </body>
 </html>

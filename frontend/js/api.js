@@ -1,70 +1,65 @@
-/* ==========================================================================
-   api.js  -  One place for every call to the REST API (SHARED, owner: Moaaz)
-   - adds the JWT from localStorage as "Authorization: Bearer <token>"
-   - sends and receives JSON
-   - turns the API error format { error: { message } } into a thrown Error
-   - on 401 (missing/expired token) clears the session and goes to login
-   ========================================================================== */
-(function () {
-  'use strict';
+// Every call to the API goes through apiRequest (same idea as Lab 5).
+// It also adds the login token, so the backend knows who is calling.
 
-  var TOKEN_KEY = 'cgp_token';
+// ---------- Login token saved in the browser ----------
+function getToken() {
+  return localStorage.getItem('token');
+}
 
-  function getToken() {
-    try { return localStorage.getItem(TOKEN_KEY); } catch (err) { return null; }
+function getUser() {
+  const saved = localStorage.getItem('user');
+  return saved ? JSON.parse(saved) : null;
+}
+
+function saveLogin(token, user) {
+  localStorage.setItem('token', token);
+  localStorage.setItem('user', JSON.stringify(user));
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+}
+
+// Pages inside resident/ and admin/ have data-root="../" on <body>
+const ROOT = document.body.dataset.root || '';
+
+// ---------- The request helper ----------
+async function apiRequest(path, options = {}) {
+  options.headers = options.headers || {};
+
+  const token = getToken();
+  if (token) {
+    options.headers['Authorization'] = `Bearer ${token}`;
   }
 
-  async function request(path, options) {
-    var opts = options || {};
+  const response = await fetch(API_BASE_URL + path, options);
 
-    // Sample mode: answer from mock.js instead of the network (same data shapes and errors)
-    if (window.APP_CONFIG.USE_MOCK) {
-      try {
-        return await window.mock.request(opts.method || 'GET', path, opts.body);
-      } catch (err) {
-        if (err.status === 401 && path.indexOf('/auth/') !== 0) {
-          window.ui && window.ui.clearSession();
-          window.location.href = window.ui ? window.ui.loginUrl() : 'login.html';
-        }
-        throw err;
-      }
-    }
-
-    var headers = { 'Accept': 'application/json' };
-    var token = getToken();
-    if (token) headers['Authorization'] = 'Bearer ' + token;
-    if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
-
-    var response = await fetch(window.APP_CONFIG.API_BASE_URL + path, {
-      method: opts.method || 'GET',
-      headers: headers,
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
-    });
-
-    var body = null;
-    var contentType = response.headers.get('content-type') || '';
-    if (contentType.indexOf('application/json') !== -1) body = await response.json();
-
-    if (response.status === 401 && path.indexOf('/auth/') !== 0) {
-      window.ui && window.ui.clearSession();
-      window.location.href = window.ui ? window.ui.loginUrl() : '/login.html';
-      throw new Error('Your session has expired. Please sign in again.');
-    }
-
-    if (!response.ok) {
-      var message = (body && body.error && body.error.message) || ('Request failed (' + response.status + ')');
-      var error = new Error(message);
-      error.status = response.status;
-      throw error;
-    }
-    return body;
+  let body = null;
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    body = await response.json();
   }
 
-  window.api = {
-    get:   function (path)       { return request(path); },
-    post:  function (path, body) { return request(path, { method: 'POST', body: body || {} }); },
-    patch: function (path, body) { return request(path, { method: 'PATCH', body: body || {} }); },
-    del:   function (path)       { return request(path, { method: 'DELETE' }); },
-    TOKEN_KEY: TOKEN_KEY
-  };
-})();
+  // 401 = not signed in or the token expired: go back to the login page
+  if (response.status === 401 && !path.startsWith('/auth/')) {
+    logout();
+    window.location.href = ROOT + 'login.html';
+  }
+
+  if (!response.ok) {
+    const message = body?.error?.message || `Request failed (${response.status})`;
+    throw new Error(message);
+  }
+
+  return body;
+}
+
+// Shortcut for POST and PATCH requests that send JSON
+function sendJson(path, method, data = {}, extraHeaders = {}) {
+  return apiRequest(path, {
+    method: method,
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
+    body: JSON.stringify(data)
+  });
+}

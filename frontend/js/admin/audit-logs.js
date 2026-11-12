@@ -1,52 +1,69 @@
-/* ==========================================================================
-   admin/audit-logs.js  -  Audit log viewer (owner: Mahmoud, logging lead)
-   GET /api/audit-logs   (admin only; residents get 403 from the API)
-   ========================================================================== */
-(function () {
-  'use strict';
+// Audit log (owner: Mahmoud)
+// GET /api/audit-logs   (admin only)
 
-  var ui = window.ui;
-  var $ = ui.$, el = ui.el;
-  var logs = [];
+const logBody = document.querySelector('#log-body');
+const logSearch = document.querySelector('#log-search');
+const actionSelect = document.querySelector('#log-action');
 
-  var search = $('log-search');
-  var action = $('log-action');
-  search.addEventListener('input', render);
-  action.addEventListener('change', render);
+let allLogs = [];
 
-  function render() {
-    var body = $('log-body');
-    var term = search.value.trim().toLowerCase();
-    var shown = logs.filter(function (l) {
-      return (!action.value || l.action === action.value)
-        && (!term || (l.userName + ' ' + l.details).toLowerCase().indexOf(term) !== -1);
-    });
+function showLogs() {
+  const search = logSearch.value.trim().toLowerCase();
+  const shown = allLogs.filter((log) => {
+    const actionMatches = actionSelect.value === '' || log.action === actionSelect.value;
+    const textMatches = `${log.userName} ${log.details}`.toLowerCase().includes(search);
+    return actionMatches && textMatches;
+  });
 
-    ui.clear(body);
-    if (!shown.length) body.appendChild(ui.emptyRow(4, 'No entries found', 'Try another search or action.'));
-    shown.forEach(function (l) {
-      var failed = l.action.indexOf('failed') !== -1;
-      body.appendChild(el('tr', {},
-        el('td', { 'data-label': 'Time', class: 'table__nowrap', text: ui.fmtDateTime.format(new Date(l.timestamp)) }),
-        el('td', { 'data-label': 'User', class: 'table__strong', text: l.userName }),
-        el('td', { 'data-label': 'Action' }, el('span', { class: 'badge badge--' + (failed ? 'danger' : 'neutral'), text: l.action })),
-        el('td', { 'data-label': 'Details', text: l.details })));
-    });
-
-    var failedCount = logs.filter(function (l) { return l.action.indexOf('failed') !== -1; }).length;
-    $('log-count').textContent = 'Showing ' + shown.length + ' of ' + logs.length + ' entries · ' + failedCount + ' failed sign-ins';
+  logBody.replaceChildren();
+  if (shown.length === 0) {
+    logBody.append(emptyRow(4, 'No entries found', 'Try another search or action.'));
   }
+  shown.forEach((log) => {
+    const action = document.createElement('span');
+    action.className = log.action === 'login.failed' ? 'badge badge--danger' : 'badge badge--neutral';
+    action.textContent = log.action;
 
-  window.api.get('/audit-logs')
-    .then(function (data) {
-      logs = data;
-      var actions = logs.map(function (l) { return l.action; })
-        .filter(function (a, i, all) { return all.indexOf(a) === i; }).sort();
-      ui.fillSelect(action, actions.map(function (a) { return { value: a, text: a }; }), true);
-      render();
-    })
-    .catch(function (err) {
-      ui.clear($('log-body'));
-      $('log-body').appendChild(ui.emptyRow(4, 'Could not load the audit log', err.message));
-    });
-})();
+    const time = new Date(log.timestamp).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const row = document.createElement('tr');
+    row.append(
+      makeCell('Time', time),
+      makeCell('User', log.userName),
+      makeCell('Action', action),
+      makeCell('Details', log.details)
+    );
+    logBody.append(row);
+  });
+
+  document.querySelector('#log-count').textContent = `Showing ${shown.length} of ${allLogs.length} entries`;
+}
+
+function fillActions() {
+  const actions = [];
+  allLogs.forEach((log) => {
+    if (!actions.includes(log.action)) actions.push(log.action);
+  });
+  actions.sort().forEach((name) => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    actionSelect.append(option);
+  });
+}
+
+async function loadLogs() {
+  try {
+    allLogs = await apiRequest('/audit-logs');
+    fillActions();
+    showLogs();
+  } catch (error) {
+    logBody.replaceChildren(emptyRow(4, 'Could not load the audit log', error.message));
+  }
+}
+
+logSearch.addEventListener('input', showLogs);
+actionSelect.addEventListener('change', showLogs);
+
+if (pageAllowed) {
+  loadLogs();
+}

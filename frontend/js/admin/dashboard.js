@@ -1,87 +1,100 @@
-/* ==========================================================================
-   admin/dashboard.js  -  Committee dashboard (owner: Moaaz, integration)
-   Reads: /api/applications, /api/plots, /api/loans, /api/duties, /api/audit-logs
-   ========================================================================== */
-(function () {
-  'use strict';
+// Committee dashboard (owner: Moaaz, integration)
 
-  var ui = window.ui;
-  var $ = ui.$, el = ui.el;
+function makeRow(iconName, titleText, metaText, extra) {
+  const row = document.createElement('li');
+  row.className = 'row';
+  const icon = document.createElement('span');
+  icon.className = 'row__icon';
+  icon.append(createIcon(iconName));
+  const body = document.createElement('div');
+  body.className = 'row__body';
+  const title = document.createElement('p');
+  title.className = 'row__title';
+  title.textContent = titleText;
+  const meta = document.createElement('p');
+  meta.className = 'row__meta';
+  meta.textContent = metaText;
+  body.append(title, meta);
+  row.append(icon, body);
+  if (extra) row.append(extra);
+  return row;
+}
 
-  // Overdue = still pending and the date has passed
-  function isOverdue(d) { return d.status === 'pending' && ui.diffDays(ui.parseDay(d.dutyDate)) < 0; }
+function showNumbers(applications, plots, loans, duties) {
+  document.querySelector('#kpi-pending').textContent = applications.filter((a) => a.status === 'pending').length;
+  document.querySelector('#kpi-available').textContent = plots.filter((p) => p.status === 'available').length;
+  document.querySelector('#kpi-loans').textContent = loans.filter((l) => l.status === 'on_loan').length;
+  document.querySelector('#kpi-overdue').textContent = duties.filter((d) => d.status === 'pending' && daysFromToday(parseDay(d.dutyDate)) < 0).length;
+}
 
-  function renderKpis(apps, plots, loans, duties) {
-    $('kpi-pending').textContent = apps.filter(function (a) { return a.status === 'pending'; }).length;
-    $('kpi-available').textContent = plots.filter(function (p) { return p.status === 'available'; }).length;
-    $('kpi-loans').textContent = loans.filter(function (l) { return l.status === 'on_loan'; }).length;
-    $('kpi-overdue').textContent = duties.filter(isOverdue).length;
+function showWaiting(applications) {
+  const list = document.querySelector('#waiting-list');
+  list.replaceChildren();
+  const pending = applications.filter((a) => a.status === 'pending').slice(0, 4);
+
+  if (pending.length === 0) {
+    list.append(emptyMessage('All caught up', 'No applications are waiting.'));
   }
-
-  function renderWaiting(apps) {
-    var list = $('waiting-list');
-    ui.clear(list);
-    var pending = apps.filter(function (a) { return a.status === 'pending'; }).slice(0, 4);
-    if (!pending.length) { list.appendChild(el('li', {}, ui.empty('All caught up', 'No applications are waiting.'))); return; }
-    pending.forEach(function (a) {
-      list.appendChild(el('li', { class: 'row' },
-        el('span', { class: 'row__icon', 'aria-hidden': 'true' }, ui.icon('user')),
-        el('div', { class: 'row__body' },
-          el('p', { class: 'row__title', text: a.userName + ' · ' + a.season }),
-          el('p', { class: 'row__meta', text: (a.note || 'No note') + ' · ' + ui.relativeDay(new Date(a.createdAt)).toLowerCase() })),
-        el('a', { class: 'btn btn--outline btn--sm', href: 'applications.html' }, 'Review')));
-    });
-  }
-
-  function renderGlance(plots) {
-    var counts = ['available', 'assigned', 'maintenance'].map(function (s) {
-      return plots.filter(function (p) { return p.status === s; }).length;
-    });
-    var total = plots.length;
-    var segments = $('plots-bar').children;
-    counts.forEach(function (c, i) { segments[i].style.width = (total ? (c / total) * 100 : 0) + '%'; });
-    $('plots-bar').setAttribute('aria-label', counts[0] + ' available, ' + counts[1] + ' assigned, ' + counts[2] + ' in maintenance, out of ' + total + ' plots');
-
-    var legend = $('plots-legend');
-    ui.clear(legend);
-    ['Available', 'Assigned', 'Maintenance'].forEach(function (name, i) {
-      legend.appendChild(el('li', {},
-        el('span', { class: 'legend__dot segbar__' + name.toLowerCase(), 'aria-hidden': 'true' }),
-        name,
-        el('span', { class: 'legend__count', text: String(counts[i]) })));
-    });
-  }
-
-  function renderActivity(logs) {
-    var list = $('activity-list');
-    ui.clear(list);
-    logs.slice(0, 6).forEach(function (log) {
-      var failed = log.action.indexOf('failed') !== -1;
-      list.appendChild(el('li', { class: 'row' + (failed ? ' row--overdue' : '') },
-        el('span', { class: 'row__icon', 'aria-hidden': 'true' }, ui.icon(failed ? 'alert' : 'shield')),
-        el('div', { class: 'row__body' },
-          el('p', { class: 'row__title', text: log.details }),
-          el('p', { class: 'row__meta', text: log.userName + ' · ' + ui.fmtDateTime.format(new Date(log.timestamp)) }))));
-    });
-  }
-
-  var today = $('today');
-  today.textContent = ui.fmtLong.format(new Date());
-  today.setAttribute('datetime', ui.isoDate(new Date()));
-
-  Promise.all([
-    window.api.get('/applications'),
-    window.api.get('/plots'),
-    window.api.get('/loans'),
-    window.api.get('/duties'),
-    window.api.get('/audit-logs')
-  ]).then(function (r) {
-    renderKpis(r[0], r[1], r[2], r[3]);
-    renderWaiting(r[0]);
-    renderGlance(r[1]);
-    renderActivity(r[4]);
-  }).catch(function (err) {
-    console.error(err);
-    ui.toast('Could not load the dashboard. Please refresh.', true);
+  pending.forEach((app) => {
+    const link = document.createElement('a');
+    link.className = 'btn btn--outline btn--sm';
+    link.href = 'applications.html';
+    link.textContent = 'Review';
+    list.append(makeRow('user', `${app.userName} · ${app.season}`, app.note || 'No note', link));
   });
-})();
+}
+
+function showPlotsGlance(plots) {
+  const statuses = ['available', 'assigned', 'maintenance'];
+  const bar = document.querySelector('#plots-bar');
+  const legend = document.querySelector('#plots-legend');
+  legend.replaceChildren();
+
+  statuses.forEach((status, i) => {
+    const count = plots.filter((p) => p.status === status).length;
+    bar.children[i].style.width = `${(count / plots.length) * 100}%`;
+
+    const item = document.createElement('li');
+    const dot = document.createElement('span');
+    dot.className = `legend__dot segbar__${status}`;
+    const number = document.createElement('span');
+    number.className = 'legend__count';
+    number.textContent = count;
+    item.append(dot, statusText(status), number);
+    legend.append(item);
+  });
+}
+
+function showActivity(logs) {
+  const list = document.querySelector('#activity-list');
+  list.replaceChildren();
+  logs.slice(0, 6).forEach((log) => {
+    const time = new Date(log.timestamp).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const row = makeRow(log.action === 'login.failed' ? 'alert' : 'shield', log.details, `${log.userName} · ${time}`);
+    if (log.action === 'login.failed') row.classList.add('row--overdue');
+    list.append(row);
+  });
+}
+
+async function loadAdminDashboard() {
+  document.querySelector('#today').textContent = longDate.format(new Date());
+  try {
+    const applications = await apiRequest('/applications');
+    const plots = await apiRequest('/plots');
+    const loans = await apiRequest('/loans');
+    const duties = await apiRequest('/duties');
+    const logs = await apiRequest('/audit-logs');
+
+    showNumbers(applications, plots, loans, duties);
+    showWaiting(applications);
+    showPlotsGlance(plots);
+    showActivity(logs);
+  } catch (error) {
+    console.error(error);
+    showMessage(`Could not load the dashboard: ${error.message}`, true);
+  }
+}
+
+if (pageAllowed) {
+  loadAdminDashboard();
+}
