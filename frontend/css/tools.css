@@ -1,0 +1,8 @@
+/* ==========================================================================
+   tools.css  -  Shared Tools and Loans pages (owner: Mayan)
+   ========================================================================== */
+
+.tool-tile--damaged .row__icon { background: var(--tone-danger-bg); color: var(--tone-danger-fg); }
+.tool-tile--on_loan .row__icon { background: var(--tone-info-bg); color: var(--tone-info-fg); }
+
+.loan-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }

@@ -1,0 +1,23 @@
+/* ==========================================================================
+   duties.css  -  Watering Duties pages (owner: Mahmoud)
+   ========================================================================== */
+
+.forecast-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.forecast-day {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--c-forest-2);
+  font-size: var(--fs-xs);
+  text-align: center;
+}
+.forecast-day .icon { width: 1.6em; height: 1.6em; color: #ffd58a; }
+.forecast-day strong { font-size: var(--fs-sm); }
+
+@media (max-width: 640px) { .forecast-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); } }

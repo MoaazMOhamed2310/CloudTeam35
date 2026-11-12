@@ -1,0 +1,7 @@
+/* ==========================================================================
+   plots.css  -  Plots & Applications pages (owner: Moaaz)
+   ========================================================================== */
+
+.plot-tile .row__icon { width: 48px; height: 48px; }
+.plot-tile--maintenance .row__icon { background: var(--tone-warning-bg); color: var(--tone-warning-fg); }
+.plot-tile--assigned .row__icon { background: var(--tone-info-bg); color: var(--tone-info-fg); }
