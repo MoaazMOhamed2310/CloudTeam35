@@ -1,0 +1,92 @@
+/* Shared base styles for every page.
+   Page-specific styles go in plots.css / tools.css / duties.css. */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f3f6f1;
+    color: #1f2a1f;
+}
+
+/* ---------- Header and navigation ---------- */
+.app-header {
+    background: #2f5d3a;
+    color: white;
+}
+
+.header-inner {
+    width: min(1100px, 92%);
+    margin: 0 auto;
+    padding: 1rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.brand {
+    color: white;
+    font-weight: 700;
+    font-size: 1.2rem;
+    text-decoration: none;
+}
+
+.main-nav {
+    display: flex;
+    gap: 1rem;
+}
+
+.main-nav a {
+    color: #dcebd9;
+    text-decoration: none;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+}
+
+.main-nav a:hover,
+.main-nav a[aria-current="page"] {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+/* ---------- Layout ---------- */
+.container {
+    width: min(1100px, 92%);
+    margin: 2rem auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+}
+
+.panel {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    border: 1px solid #dfe7dc;
+}
+
+.intro,
+.span-2 {
+    grid-column: 1 / -1;
+}
+
+.intro h1 {
+    margin-top: 0;
+    color: #2f5d3a;
+}
+
+.panel h2 {
+    margin-top: 0;
+}
+
+.panel-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 1rem;
+    flex-wrap: wrap;
