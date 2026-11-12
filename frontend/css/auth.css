@@ -1,0 +1,63 @@
+/* ==========================================================================
+   auth.css  -  Landing, login and register pages (owner: Moaaz)
+   ========================================================================== */
+
+.auth {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.auth__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-7);
+  background: var(--c-forest);
+  color: #fff;
+  overflow: hidden;
+}
+.auth__panel .brand { color: #fff; }
+.auth__panel .brand__text small { color: #9fd3b2; }
+.auth__leaf {
+  position: absolute;
+  right: -60px; bottom: -60px;
+  width: 360px; height: 360px;
+  color: #fff;
+  opacity: 0.06;
+  stroke-width: 1;
+  pointer-events: none;
+}
+.auth__title { font-size: var(--fs-3xl); line-height: 1.15; font-weight: var(--fw-bold); max-width: 18ch; }
+.auth__lead { margin-top: var(--space-3); color: rgb(255 255 255 / 0.8); max-width: 44ch; }
+
+.auth__features { display: grid; gap: var(--space-3); }
+.auth__features li { display: flex; align-items: center; gap: var(--space-3); color: rgb(255 255 255 / 0.9); }
+.auth__features .row__icon { background: var(--c-forest-2); color: #9fd3b2; }
+
+.auth__main {
+  display: grid;
+  place-items: center;
+  padding: var(--space-6) var(--space-4);
+}
+.auth__card { width: min(100%, 420px); }
+.auth__card h1 { font-size: var(--fs-2xl); font-weight: var(--fw-bold); }
+.auth__card .lead { margin: var(--space-1) 0 var(--space-5); color: var(--c-text-muted); }
+.auth__switch { margin-top: var(--space-4); text-align: center; color: var(--c-text-muted); font-size: var(--fs-sm); }
+.auth__demo { margin-top: var(--space-4); }
+
+.btn--block { width: 100%; }
+
+/* Landing page */
+.landing__actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
+.landing__actions .btn--outline { background: transparent; color: #fff; border-color: rgb(255 255 255 / 0.4); }
+.landing__actions .btn--outline:hover { background: var(--c-forest-2); }
+
+@media (max-width: 900px) {
+  .auth { grid-template-columns: minmax(0, 1fr); }
+  .auth__panel { padding: var(--space-6) var(--space-4); }
+  .auth__features { display: none; }
+}

@@ -1,0 +1,98 @@
+/* ==========================================================================
+   dashboard.css  -  Styles that only the dashboards need (owner: Moaaz)
+   ========================================================================== */
+
+/* "My plot" summary card with the three stat tiles */
+.hero { overflow: hidden; }
+.hero__leaf {
+  position: absolute;
+  top: -22px; right: -12px;
+  width: 190px; height: 190px;
+  color: var(--c-primary);
+  opacity: 0.09;
+  stroke-width: 1;
+  pointer-events: none;
+}
+.hero__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.hero__badge {
+  display: grid;
+  place-items: center;
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+  font-size: 1.9rem;
+}
+.hero__title { font-size: var(--fs-xl); font-weight: var(--fw-medium); line-height: 1.2; }
+.hero__sub { margin-top: 2px; color: var(--c-text-muted); font-style: italic; }
+.hero__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+/* Weather card at the top of the side panel (also used on the duties pages) */
+.weather {
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--c-forest);
+  color: #fff;
+}
+.weather__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgb(255 255 255 / 0.8);
+  font-size: var(--fs-sm);
+}
+.weather__main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+.weather__icon {
+  display: grid;
+  place-items: center;
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: var(--c-forest-2);
+  color: #ffd58a;
+  font-size: 1.9rem;
+}
+.weather__temp { font-size: var(--fs-3xl); font-weight: var(--fw-bold); line-height: 1; }
+.weather__note {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--c-forest-2);
+  font-size: var(--fs-sm);
+}
+.weather__credit { margin-top: var(--space-3); color: rgb(255 255 255 / 0.7); font-size: var(--fs-xs); }
+.weather__credit a { color: inherit; }
+
+@media (max-width: 640px) {
+  .hero__stats { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+  .hero__stats .stat {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "icon value" "icon label";
+    align-items: center;
+    justify-items: start;
+    column-gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+  }
+  .hero__stats .stat__icon-wrap { grid-area: icon; width: auto; margin: 0; }
+  .hero__stats .stat__icon-wrap::before,
+  .hero__stats .stat__icon-wrap::after { content: none; }
+  .hero__stats .stat__value { grid-area: value; font-size: var(--fs-xl); }
+  .hero__stats .stat__label { grid-area: label; }
+  .hero__badge { width: 52px; height: 52px; font-size: 1.5rem; }
+  .page-head .btn { width: 100%; }
+}

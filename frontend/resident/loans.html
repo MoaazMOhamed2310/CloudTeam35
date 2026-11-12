@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<!-- Owner: Mayan -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My loans · Community Garden Plots</title>
+  <meta name="description" content="Tools you have borrowed and your loan history.">
+
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/tools.css">
+</head>
+<body data-role="resident" data-root="../">
+
+  <!-- Icon sprite: one place for every icon. Use with <svg class="icon"><use href="#i-name"/></svg> -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 19c0-8 5-14 15-14 0 10-6 15-14 15"/><path d="M5 19c3-5 6-8 10-10"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-sprout" viewBox="0 0 24 24"><path d="M12 21v-9"/><path d="M12 13c0-4-3-6-7-6 0 4 3 6 7 6z"/><path d="M12 11c0-3 2-5 6-5 0 3-2 5-6 5z"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6M9 16h4"/></symbol>
+    <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5l-2.5 2.5-2.5-.5-.5-2.5z"/></symbol>
+    <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.8 2.8L16 9.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 4H5v16h4"/><path d="M16 8l4 4-4 4M20 12H10"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+    <symbol id="i-rain" viewBox="0 0 24 24"><path d="M7 15a4 4 0 1 1 1-7.9A5 5 0 0 1 18 9a3.5 3.5 0 0 1 0 6"/><path d="M9 18l-1 2.5M13 18l-1 2.5M17 18l-1 2.5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4M12 17h.01"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
+  </svg>
+
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <a class="brand" href="dashboard.html">
+        <span class="brand__mark"><svg class="icon" aria-hidden="true"><use href="#i-leaf"/></svg></span>
+        <span class="brand__text">Community Garden<small>Plots</small></span>
+      </a>
+
+      <nav id="site-nav" class="nav" aria-label="Main">
+        <ul class="nav__list">
+          <li><a class="nav__link" href="dashboard.html"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>Dashboard</a></li>
+          <li><a class="nav__link" href="plots.html"><svg class="icon" aria-hidden="true"><use href="#i-sprout"/></svg>Plots</a></li>
+          <li><a class="nav__link" href="applications.html"><svg class="icon" aria-hidden="true"><use href="#i-clipboard"/></svg>Applications</a></li>
+          <li><a class="nav__link" href="tools.html"><svg class="icon" aria-hidden="true"><use href="#i-tool"/></svg>Tools</a></li>
+          <li><a class="nav__link" href="loans.html" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg>My loans</a></li>
+          <li><a class="nav__link" href="duties.html"><svg class="icon" aria-hidden="true"><use href="#i-drop"/></svg>Duties</a></li>
+        </ul>
+      </nav>
+
+      <button class="topbar__toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+        <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
+      </button>
+
+      <div class="topbar__user">
+        <span class="user-chip">
+          <span class="avatar" id="user-avatar" aria-hidden="true">–</span>
+          <span class="user-chip__name" id="user-chip-name">–</span>
+          <span class="role-pill" id="user-role" hidden>Admin</span>
+        </span>
+        <a class="btn btn--outline btn--sm" href="../login.html" data-logout>
+          <svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg><span class="btn__label">Log out</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== Page content ===== -->
+  <div class="container page page--single">
+
+    <main id="main" class="page__main">
+
+      <header class="page-head">
+        <div>
+          <h1>My loans</h1>
+          <p class="page-head__meta">Return tools here and tell us what condition they are in.</p>
+        </div>
+        <a class="btn btn--outline" href="tools.html">
+          <svg class="icon" aria-hidden="true"><use href="#i-tool"/></svg>Browse tools
+        </a>
+      </header>
+
+      <section class="card" aria-labelledby="active-title">
+        <div class="card__head">
+          <h2 id="active-title">On loan now</h2>
+          <span class="badge badge--info" id="active-count">–</span>
+        </div>
+        <ul class="rows" id="active-list"><li class="empty">Loading…</li></ul>
+      </section>
+
+      <section aria-labelledby="history-title">
+        <div class="section-head"><h2 id="history-title">Loan history</h2></div>
+        <div class="card card--flush">
+          <div class="table-wrap">
+            <table class="table">
+              <caption class="visually-hidden">Tools you have returned</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Tool</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Borrowed</th>
+                  <th scope="col">Returned</th>
+                  <th scope="col">Condition</th>
+                </tr>
+              </thead>
+              <tbody id="history-body"><tr><td colspan="5"><p class="empty">Loading…</p></td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <span>Community Garden Plots · Cloud Computing and Cloud Security, Group 35</span>
+      <span>Weather data: Open-Meteo</span>
+    </div>
+  </footer>
+
+  <div class="toast-region" id="toast-region" role="status" aria-live="polite"></div>
+
+  <script src="../js/config.js" defer></script>
+  <script src="../js/api.js" defer></script>
+  <script src="../js/mock.js" defer></script>
+  <script src="../js/layout.js" defer></script>
+  <script src="../js/resident/loans.js" defer></script>
+</body>
+</html>
